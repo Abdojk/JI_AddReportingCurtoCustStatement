@@ -1,0 +1,26 @@
+; ============================================================================
+; Label file: JI_CustStatement
+; Language:   en-us (British English content, US locale file convention)
+; Model:      JI_CustAccountStatementRC
+; Purpose:    Labels for Reporting Currency columns on Customer Account Statement
+; ============================================================================
+;
+; NOTE: In D365 F&O, label files are created via:
+;   AOT > Label Files > right-click > New Label File
+;   File ID: JI_CustStatement
+;   Then add labels via the Label Editor in Visual Studio.
+;
+; The entries below document the label IDs and text to be created.
+; ============================================================================
+
+@JI_RCDebit=Debit (Reporting Currency)
+ ;Debit amount expressed in the legal entity's reporting currency.
+
+@JI_RCCredit=Credit (Reporting Currency)
+ ;Credit amount expressed in the legal entity's reporting currency.
+
+@JI_RCBalance=Balance (Reporting Currency)
+ ;Running balance expressed in the legal entity's reporting currency.
+
+@JI_RCNotConfigured=Reporting Currency is not configured for this legal entity. Reporting Currency columns will display zero.
+ ;Warning message displayed in the Infolog when no reporting currency is set up on the Ledger.

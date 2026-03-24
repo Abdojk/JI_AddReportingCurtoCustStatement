@@ -1,0 +1,35 @@
+/// <summary>
+/// Event handler class that redirects the Print Management default report format
+/// for CustAccountStatement to the extended report design JI_CustAccountStatementExt.
+/// </summary>
+/// <remarks>
+/// This ensures that when Print Management resolves the default report design for
+/// the Customer Account Statement document type, it uses the extended design
+/// that includes Reporting Currency columns.
+///
+/// AOT VERIFICATION REQUIRED:
+///   - Confirm the delegate name: getDefaultReportFormatDelegate on PrintMgmtDocType.
+///   - Confirm the delegate signature (parameters and return mechanism).
+///   - Confirm the enum value: PrintMgmtDocumentType::CustAccountStatement.
+///   - Note: This affects ALL legal entities. If selective activation is required,
+///     add a configuration parameter check before setting the result.
+/// </remarks>
+public class JI_CustAccountStatementPrintMgmt_EventHandler
+{
+    /// <summary>
+    /// Subscribes to PrintMgmtDocType.getDefaultReportFormatDelegate to redirect
+    /// the CustAccountStatement document type to the extended report design.
+    /// </summary>
+    /// <param name="_docType">The Print Management document type being resolved.</param>
+    /// <param name="_result">The event handler result to set the report format name.</param>
+    [SubscribesTo(classStr(PrintMgmtDocType), delegateStr(PrintMgmtDocType, getDefaultReportFormatDelegate))]
+    public static void JI_getDefaultReportFormat(
+        PrintMgmtDocumentType   _docType,
+        EventHandlerResult      _result)
+    {
+        if (_docType == PrintMgmtDocumentType::CustAccountStatement)
+        {
+            _result.result(ssrsReportStr(JI_CustAccountStatementExt, Report));
+        }
+    }
+}
