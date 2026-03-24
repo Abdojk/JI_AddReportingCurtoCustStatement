@@ -1,0 +1,29 @@
+/// <summary>
+/// Chain of Command extension on CustAccountStatementExtController.
+/// Redirects the report output to the duplicated report design
+/// JI_CustAccountStatementExt which includes the Reporting Currency columns.
+/// </summary>
+/// <remarks>
+/// AOT VERIFICATION REQUIRED:
+///   - Confirm the method to override. outputReport() is expected, but the
+///     report name may be set elsewhere (e.g., in initArgs or preRunModifyContract).
+///   - If outputReport() is not overridable via CoC, consider using a pre/post
+///     event handler on the method that sets the report name.
+///   - Confirm the exact design name: expected "Report" as the design name
+///     within JI_CustAccountStatementExt.
+/// </remarks>
+[ExtensionOf(classStr(CustAccountStatementExtController))]
+public final class JI_CustAccountStatementExtController_Extension
+{
+    /// <summary>
+    /// Overrides outputReport() to redirect to the extended report design
+    /// that includes Reporting Currency columns.
+    /// </summary>
+    protected void outputReport()
+    {
+        // Redirect to the duplicated report with RC columns.
+        this.parmReportName(ssrsReportStr(JI_CustAccountStatementExt, Report));
+
+        next outputReport();
+    }
+}

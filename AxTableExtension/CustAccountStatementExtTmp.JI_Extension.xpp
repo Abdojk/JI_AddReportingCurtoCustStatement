@@ -1,0 +1,42 @@
+/// <summary>
+/// Table extension for CustAccountStatementExtTmp.
+/// Adds Reporting Currency fields to the Customer Account Statement (External) temp table.
+/// Model: JI_CustAccountStatementRC
+/// </summary>
+/// <remarks>
+/// This extension adds four new fields to support Reporting Currency columns
+/// on the Customer Account Statement report.
+///
+/// IMPORTANT: This file documents the table extension metadata.
+/// In Visual Studio, create the extension via:
+///   AOT > Data Model > Tables > CustAccountStatementExtTmp > right-click > Create Extension
+///   Save into model: JI_CustAccountStatementRC
+///
+/// Fields to add:
+///
+///   Field Name                     | EDT                  | Label                              | Notes
+///   -------------------------------|----------------------|------------------------------------|-------------------------------
+///   JI_ReportingCurrencyDebit      | AmountMSTSecondary   | @JI_RCDebit  (or "Debit (RC)")     | Always >= 0
+///   JI_ReportingCurrencyCredit     | AmountMSTSecondary   | @JI_RCCredit (or "Credit (RC)")    | Always >= 0
+///   JI_ReportingCurrencyBalance    | AmountMSTSecondary   | @JI_RCBalance (or "Balance (RC)")  | Running balance; signed
+///   JI_ReportingCurrencyCode       | CurrencyCode         | @SYS7572 (or "Currency")           | Reporting currency ISO code
+///
+/// AOT VERIFICATION REQUIRED:
+///   - Confirm EDT AmountMSTSecondary exists. If not, use AmountMST as fallback.
+///   - Confirm the table type (InMemory vs TempDB) — affects forupdate behaviour in the CoC.
+///   - Confirm existing field names: Debit, Credit, Balance, AccountNum, TransDate, Voucher.
+/// </remarks>
+[ExtensionOf(tableStr(CustAccountStatementExtTmp))]
+public final class CustAccountStatementExtTmp_JI_Extension
+{
+    // No X++ methods required on the table extension.
+    // The four fields above are added via the Visual Studio AOT designer.
+    //
+    // After adding the fields:
+    //   1. Build the model.
+    //   2. Synchronise the database (Database > Synchronise Database).
+    //   3. Verify the new columns appear in SQL:
+    //        SELECT TOP 1 JI_REPORTINGCURRENCYDEBIT, JI_REPORTINGCURRENCYCREDIT,
+    //                     JI_REPORTINGCURRENCYBALANCE, JI_REPORTINGCURRENCYCODE
+    //        FROM CUSTACCOUNTSTATEMENTEXTTMP
+}

@@ -1,0 +1,120 @@
+/// <summary>
+/// Chain of Command extension on CustAccountStatementExtDP.
+/// Populates Reporting Currency Debit, Credit, and Running Balance fields
+/// on CustAccountStatementExtTmp after the standard processReport() completes.
+/// </summary>
+/// <remarks>
+/// Strategy: Post-processing approach.
+///   1. Call next processReport() to let the standard RDP populate the temp table.
+///   2. Iterate the temp table in (AccountNum, TransDate, Voucher) order.
+///   3. For each row, look up CustTrans.ReportingCurrencyAmount and split into
+///      Debit RC / Credit RC. Accumulate a running balance per customer.
+///
+/// AOT VERIFICATION REQUIRED before final build:
+///   - Confirm the accessor method name for the temp table buffer
+///     (expected: getCustAccountStatementExtTmp() — may differ).
+///   - Confirm CustTrans join keys: Voucher + TransDate + AccountNum may not be
+///     unique if multiple CustTrans lines share the same voucher. If the temp table
+///     carries CustTrans.RecId, use that instead.
+///   - Confirm whether the temp table contains "Opening Balance" rows.
+///     If so, handle them separately (sum CustTrans.ReportingCurrencyAmount
+///     for all transactions before FromDate).
+///   - Confirm sign convention: positive ReportingCurrencyAmount = debit.
+///   - Confirm temp table type: TempDB tables support forupdate; InMemory tables
+///     require a different update pattern.
+/// </remarks>
+[ExtensionOf(classStr(CustAccountStatementExtDP))]
+public final class JI_CustAccountStatementExtDP_Extension
+{
+    /// <summary>
+    /// Wraps processReport() to populate Reporting Currency fields after standard processing.
+    /// </summary>
+    public void processReport()
+    {
+        // Step 1: Execute the standard report data population.
+        next processReport();
+
+        // Step 2: Retrieve the temp table buffer.
+        // ⚠ VERIFY: Method name may differ. Check the RDP class in AOT.
+        CustAccountStatementExtTmp tmpTable = this.getCustAccountStatementExtTmp();
+
+        // Step 3: Pre-flight — check whether a Reporting Currency is configured.
+        CurrencyCode reportingCurrency = Ledger::reportingCurrency();
+
+        if (!reportingCurrency)
+        {
+            warning("Reporting Currency is not configured for this legal entity. Reporting Currency columns will display zero.");
+            return;
+        }
+
+        // Step 4: Post-process the temp table to populate RC fields.
+        this.JI_populateReportingCurrencyFields(tmpTable, reportingCurrency);
+    }
+
+    /// <summary>
+    /// Iterates CustAccountStatementExtTmp rows and populates the three
+    /// Reporting Currency fields: Debit, Credit, and Running Balance.
+    /// </summary>
+    /// <param name="_tmpTable">
+    /// The temp table buffer populated by the standard processReport() method.
+    /// </param>
+    /// <param name="_reportingCurrency">
+    /// The Reporting Currency code for the current legal entity.
+    /// </param>
+    private void JI_populateReportingCurrencyFields(
+        CustAccountStatementExtTmp  _tmpTable,
+        CurrencyCode                _reportingCurrency)
+    {
+        AmountMSTSecondary  runningBalanceRC;
+        AccountNum          prevAccountNum;
+        CustTrans           custTrans;
+
+        // Iterate the temp table in customer + date + voucher order.
+        // This ensures the running balance accumulates correctly.
+        while select forupdate _tmpTable
+            order by _tmpTable.AccountNum asc,
+                     _tmpTable.TransDate  asc,
+                     _tmpTable.Voucher    asc
+        {
+            // Reset running balance at customer boundary.
+            if (_tmpTable.AccountNum != prevAccountNum)
+            {
+                runningBalanceRC = 0;
+                prevAccountNum   = _tmpTable.AccountNum;
+            }
+
+            // Look up the Reporting Currency amount from CustTrans.
+            //
+            // ⚠ VERIFY: Join keys. If the temp table carries CustTrans.RecId,
+            //   use that for a precise join instead of Voucher + TransDate.
+            //
+            // ⚠ VERIFY: If multiple CustTrans records share the same
+            //   Voucher + TransDate + AccountNum (e.g., settlement entries),
+            //   replace 'select firstonly' with an aggregate:
+            //     select sum(ReportingCurrencyAmount) from custTrans
+            //       where custTrans.Voucher    == _tmpTable.Voucher
+            //          && custTrans.TransDate  == _tmpTable.TransDate
+            //          && custTrans.AccountNum == _tmpTable.AccountNum;
+            select firstonly ReportingCurrencyAmount from custTrans
+                where custTrans.Voucher    == _tmpTable.Voucher
+                   && custTrans.TransDate  == _tmpTable.TransDate
+                   && custTrans.AccountNum == _tmpTable.AccountNum;
+
+            AmountMSTSecondary rcAmount = custTrans.ReportingCurrencyAmount;
+
+            // Split into Debit and Credit based on sign convention.
+            // Standard D365: positive = debit, negative = credit.
+            _tmpTable.JI_ReportingCurrencyDebit   = max(rcAmount, 0);
+            _tmpTable.JI_ReportingCurrencyCredit  = abs(min(rcAmount, 0));
+
+            // Accumulate running balance.
+            runningBalanceRC += rcAmount;
+            _tmpTable.JI_ReportingCurrencyBalance = runningBalanceRC;
+
+            // Store the Reporting Currency code for SSRS column header use.
+            _tmpTable.JI_ReportingCurrencyCode = _reportingCurrency;
+
+            _tmpTable.update();
+        }
+    }
+}
